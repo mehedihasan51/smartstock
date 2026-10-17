@@ -1,59 +1,121 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SmartStock — AI-Powered Inventory Management
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A practical full-stack assessment project for NT Tech Innovation. Stack: Laravel 12 API, MySQL, React + Vite, and a simple explainable demand/reorder heuristic (no paid AI API required).
 
-## About Laravel
+## Features
+- Token-based authentication using Laravel Sanctum
+- Admin and Staff roles; protected API endpoints
+- Product, category, supplier CRUD
+- Sales workflow with transaction-safe stock reduction and validation
+- Dashboard summary and low-stock alerts
+- Explainable demand estimate/reorder recommendations based on recent sales
+- React dashboard, products, sales, recommendations, login
+- Feature test for stock reduction on a sale
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Requirements
+- PHP 8.2+, Composer
+- MySQL 8+ (or compatible MariaDB)
+- Node.js 20+
+- Git
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Setup (Windows)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. Create the Laravel backend
+Open PowerShell in the folder where you want the project:
 
-## Learning Laravel
+```powershell
+composer create-project laravel/laravel backend "^12.0"
+cd backend
+composer require laravel/sanctum
+php artisan install:api
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Copy the files from this ZIP's `backend-overlay` folder into the newly created `backend` folder, preserving directory structure. Allow overwrite when prompted.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 2. Configure MySQL
+Create a database in phpMyAdmin or MySQL:
+```sql
+CREATE DATABASE smartstock CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+Copy `.env.example` to `.env` if needed and set:
+```env
+APP_NAME=SmartStock
+APP_URL=http://127.0.0.1:8000
+FRONTEND_URL=http://localhost:5173
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=smartstock
+DB_USERNAME=root
+DB_PASSWORD=
+```
+Then run:
+```powershell
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+API runs at `http://127.0.0.1:8000`.
 
-## Laravel Sponsors
+### 3. Start the React frontend
+Open a second terminal at the ZIP's `frontend` folder:
+```powershell
+npm install
+copy .env.example .env
+npm run dev
+```
+Open `http://localhost:5173`.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Demo account
+- Email: `admin@smartstock.test`
+- Password: `Password123!`
 
-### Premium Partners
+Change demo credentials before any real deployment. Do not commit `.env`.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## API overview
+- `POST /api/register` (disabled in the UI; public registration creates Staff)
+- `POST /api/login`
+- `POST /api/logout` (auth required)
+- `GET /api/me`
+- `GET/POST /api/products`
+- `GET/PUT/DELETE /api/products/{product}`
+- `GET/POST /api/categories`
+- `GET/POST /api/suppliers`
+- `GET/POST /api/sales`
+- `GET /api/dashboard`
+- `GET /api/ai/reorder-recommendations`
 
-## Contributing
+All business endpoints require a Sanctum bearer token. Product/category/supplier writes and deletes require Admin. Staff can view inventory and record sales. The API validates request data and prevents sales above available stock.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## AI/ML feature explanation
+The recommender is an intentionally small, explainable heuristic rather than a claim of a trained deep-learning model. It uses current stock, reorder threshold, and average daily sales over the last 30 days:
+- `estimated_days_remaining = current_stock / average_daily_units`
+- `recommended_reorder_qty = max(0, target_stock - current_stock)`
+- urgency is `critical` when stock is at/below zero or estimated coverage is <= 3 days; `high` when <= 7 days or stock is below reorder level; otherwise `normal`.
+- target stock is 14 days of average demand, but never below the product's reorder level.
 
-## Code of Conduct
+Inputs: product stock, reorder level, and completed sale items from the last 30 days.
+Outputs: estimated days remaining, urgency, and suggested reorder quantity.
+Limitations: sparse/new products have little history; promotions, seasonality, supplier lead time and external demand shocks are not modeled.
+Evaluation: verify recommendations against a few hand-calculated sample products; compare predicted coverage with observed stock-outs during a pilot. Do not describe it as a trained ML model; it is a basic data-driven decision-support feature.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Git and testing
+Make meaningful commits, for example:
+1. `chore: scaffold Laravel API and React app`
+2. `feat: add inventory CRUD and role protection`
+3. `feat: add sales workflow and stock validation`
+4. `feat: add demand-based reorder recommendations`
+5. `test: cover stock deduction on sale`
 
-## Security Vulnerabilities
+Run backend tests:
+```powershell
+php artisan test
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Architecture
+React (Vite) -> JSON REST API -> Laravel controllers/services/models -> MySQL. Sanctum issues personal access tokens. Sales are wrapped in a database transaction and lock product rows to avoid two simultaneous sales overselling the same stock.
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Known limitations
+- No purchase-order receiving, invoices, multi-branch inventory, or password-reset email.
+- The recommendation logic is a transparent heuristic, not a general-purpose forecasting model.
+- This is a local assessment starter. Review dependencies, configure production CORS/HTTPS, rotate credentials, and harden rate limits before deployment.
